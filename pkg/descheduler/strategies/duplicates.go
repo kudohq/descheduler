@@ -94,6 +94,7 @@ func RemoveDuplicatePods(
 	duplicatePods := make(map[podOwner]map[string][]*v1.Pod)
 	ownerKeyOccurence := make(map[podOwner]int32)
 	nodeCount := 0
+	nodeCountWithoutTaints := 0
 	nodeMap := make(map[string]*v1.Node)
 
 	podFilter, err := podutil.NewOptions().
@@ -115,6 +116,10 @@ func RemoveDuplicatePods(
 		}
 		nodeMap[node.Name] = node
 		nodeCount++
+
+		if len(node.Spec.Taints) == 0 {
+			nodeCountWithoutTaints++
+		}
 		// Each pod has a list of owners and a list of containers, and each container has 1 image spec.
 		// For each pod, we go through all the OwnerRef/Image mappings and represent them as a "key" string.
 		// All of those mappings together makes a list of "key" strings that essentially represent that pod's uniqueness.
@@ -203,6 +208,15 @@ func RemoveDuplicatePods(
 		}
 
 		upperAvg := int(math.Ceil(float64(ownerKeyOccurence[ownerKey]) / float64(len(targetNodes))))
+
+		// If we have replica count > worker nodes count
+		if int(ownerKeyOccurence[ownerKey]) > nodeCountWithoutTaints {
+			klog.V(2).InfoS("The number of replicas is more than number of nodes, skipping eviction", "pod", ownerKey.name, "replicaNumber", float64(ownerKeyOccurence[ownerKey]), "nodeCountWithoutTaints", nodeCountWithoutTaints)
+		 	continue
+		} else {
+			klog.V(2).InfoS("The number of replicas is less than number of nodes, start eviction", "pod", ownerKey.name, "replicaNumber", float64(ownerKeyOccurence[ownerKey]), "nodeCountWithoutTaints", nodeCountWithoutTaints)
+		}
+
 		for nodeName, pods := range podNodes {
 			klog.V(2).InfoS("Average occurrence per node", "node", klog.KObj(nodeMap[nodeName]), "ownerKey", ownerKey, "avg", upperAvg)
 			// list of duplicated pods does not contain the original referential pod
