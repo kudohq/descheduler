@@ -20,6 +20,7 @@ import (
 	"context"
 	"math"
 	"sort"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,14 @@ type topology struct {
 	pods []*v1.Pod
 }
 
+func CountOccurence(apps []string) map[string]int {
+	dict := make(map[string]int)
+	for _, v := range apps {
+		dict[v]++
+	}
+	return dict
+}
+
 func RemovePodsViolatingTopologySpreadConstraint(
 	ctx context.Context,
 	client clientset.Interface,
@@ -66,9 +75,17 @@ func RemovePodsViolatingTopologySpreadConstraint(
 		evictions.WithLabelSelector(strategyParams.LabelSelector),
 	)
 
+	podCount := 0
+	nodeCountWithoutTaints := 0
+	podMap := make(map[int]string)
 	nodeMap := make(map[string]*v1.Node, len(nodes))
 	for _, node := range nodes {
 		nodeMap[node.Name] = node
+
+		// Count node without taints
+		if len(node.Spec.Taints) == 0 {
+			nodeCountWithoutTaints++
+		}
 	}
 
 	// 1. for each namespace for which there is Topology Constraint
@@ -106,6 +123,8 @@ func RemovePodsViolatingTopologySpreadConstraint(
 		// ...where there is a topology constraint
 		namespaceTopologySpreadConstraints := make(map[v1.TopologySpreadConstraint]struct{})
 		for _, pod := range namespacePods.Items {
+			podMap[podCount] = pod.Name
+			podCount++
 			for _, constraint := range pod.Spec.TopologySpreadConstraints {
 				// Ignore soft topology constraints if they are not included
 				if constraint.WhenUnsatisfiable == v1.ScheduleAnyway && (strategy.Params == nil || !strategy.Params.IncludeSoftConstraints) {
@@ -172,7 +191,28 @@ func RemovePodsViolatingTopologySpreadConstraint(
 		}
 	}
 
+	var splittedPods []string
+	// Get list of pods and split text after the last `-` character
+	// It helps us to calculate how many replicas do we have
+	for _, pod := range podMap {
+		var podSplitted = strings.Split(pod, "-")[0:2]
+		splittedPods = append(splittedPods, strings.Join(podSplitted, "-"))
+	}
+
 	for pod := range podsForEviction {
+		// Get currect podsForEviction name without the last `-` character
+		// And get count occurence
+		var podSplitted = strings.Split(pod.Name, "-")[0:2]
+		podCount := CountOccurence(splittedPods)[strings.Join(podSplitted, "-")]
+
+		// If we have replica count > worker nodes count
+		if int(podCount) > nodeCountWithoutTaints {
+			klog.V(2).InfoS("The number of replicas is more than number of nodes, skipping eviction", "pod", pod.Name, "replicaNumber", podCount, "nodeCountWithoutTaints", nodeCountWithoutTaints)
+		 	continue
+		} else {
+			klog.V(2).InfoS("The number of replicas is less than number of nodes, start eviction", "pod", pod.Name, "replicaNumber", podCount, "nodeCountWithoutTaints", nodeCountWithoutTaints)
+		}
+
 		if !evictable.IsEvictable(pod) {
 			continue
 		}
