@@ -214,7 +214,7 @@ func RemoveDuplicatePods(
 			klog.V(2).InfoS("The number of replicas is more than number of nodes, skipping eviction", "pod", ownerKey.name, "replicaNumber", float64(ownerKeyOccurence[ownerKey]), "nodeCountWithoutTaints", nodeCountWithoutTaints)
 		 	continue
 		} else {
-			klog.V(2).InfoS("The number of replicas is less than number of nodes, start eviction", "pod", ownerKey.name, "replicaNumber", float64(ownerKeyOccurence[ownerKey]), "nodeCountWithoutTaints", nodeCountWithoutTaints)
+			klog.V(2).InfoS("The number of replicas is less (or the same) as the number of nodes, start eviction", "pod", ownerKey.name, "replicaNumber", float64(ownerKeyOccurence[ownerKey]), "nodeCountWithoutTaints", nodeCountWithoutTaints)
 		}
 
 		for nodeName, pods := range podNodes {
