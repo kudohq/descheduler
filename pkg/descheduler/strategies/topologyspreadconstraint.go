@@ -191,19 +191,21 @@ func RemovePodsViolatingTopologySpreadConstraint(
 		}
 	}
 
-	var splittedPods []string
+	var podsAll []string
 	// Get list of pods and split text after the last `-` character
 	// It helps us to calculate how many replicas do we have
 	for _, pod := range podMap {
-		var podSplitted = strings.Split(pod, "-")[0:2]
-		splittedPods = append(splittedPods, strings.Join(podSplitted, "-"))
+		var podSplitted = strings.Split(pod, "-")
+		var podConcated = podSplitted[:len(podSplitted)-1]
+		podsAll = append(podsAll, strings.Join(podConcated, "-"))
 	}
 
 	for pod := range podsForEviction {
 		// Get currect podsForEviction name without the last `-` character
 		// And get count occurence
-		var podSplitted = strings.Split(pod.Name, "-")[0:2]
-		podCount := CountOccurence(splittedPods)[strings.Join(podSplitted, "-")]
+		var podSplitted = strings.Split(pod.Name, "-")
+		var podConcated = podSplitted[:len(podSplitted)-1]
+		podCount := CountOccurence(podsAll)[strings.Join(podConcated, "-")]
 
 		// If we have replica count > worker nodes count
 		if int(podCount) > nodeCountWithoutTaints {
