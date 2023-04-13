@@ -80,10 +80,10 @@ func RemovePodsViolatingTopologySpreadConstraint(
 	podMap := make(map[int]string)
 	nodeMap := make(map[string]*v1.Node, len(nodes))
 	for _, node := range nodes {
-		nodeMap[node.Name] = node
-
-		// Count node without taints
+		// Ignore nodes that are tainted
+		// Only untainted nodes are considered for spreading
 		if len(node.Spec.Taints) == 0 {
+			nodeMap[node.Name] = node
 			nodeCountWithoutTaints++
 		}
 	}
