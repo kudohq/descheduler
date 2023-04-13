@@ -122,6 +122,7 @@ func RemovePodsViolatingTopologySpreadConstraint(
 
 		// ...where there is a topology constraint
 		namespaceTopologySpreadConstraints := make(map[v1.TopologySpreadConstraint]struct{})
+		klog.V(2).InfoS("Processing TopologySpreadConstraints for pods in namespace", "namespace", namespace.Name)
 		for _, pod := range namespacePods.Items {
 			podMap[podCount] = pod.Name
 			podCount++
@@ -134,6 +135,7 @@ func RemovePodsViolatingTopologySpreadConstraint(
 			}
 		}
 		if len(namespaceTopologySpreadConstraints) == 0 {
+			klog.V(2).InfoS("No topology spread constraints found for pods in namespace", "namespace", namespace.Name)
 			continue
 		}
 
@@ -144,6 +146,7 @@ func RemovePodsViolatingTopologySpreadConstraint(
 			// (we can't just build it from existing pods' nodes because a topology may have 0 pods)
 			for _, node := range nodeMap {
 				if val, ok := node.Labels[constraint.TopologyKey]; ok {
+					klog.V(2).InfoS("Adding topology pair for node", "node", klog.KObj(node), "topologyKey", constraint.TopologyKey, "topologyValue", val)
 					constraintTopologies[topologyPair{key: constraint.TopologyKey, value: val}] = make([]*v1.Pod, 0)
 				}
 			}
@@ -233,6 +236,10 @@ func topologyIsBalanced(topology map[topologyPair][]*v1.Pod, constraint v1.Topol
 	minDomainSize := math.MaxInt32
 	maxDomainSize := math.MinInt32
 	for _, pods := range topology {
+		klog.V(2).InfoS("Len of pods", "len", len(pods))
+		for pod := range pods {
+			klog.V(2).InfoS("One of the pods is sharing the same topology", "podName", pods[pod].Name)
+		}
 		if len(pods) < minDomainSize {
 			minDomainSize = len(pods)
 		}
@@ -240,6 +247,7 @@ func topologyIsBalanced(topology map[topologyPair][]*v1.Pod, constraint v1.Topol
 			maxDomainSize = len(pods)
 		}
 		if int32(maxDomainSize-minDomainSize) > constraint.MaxSkew {
+			klog.V(2).InfoS("Topology is not balanced", "constraint", constraint)
 			return false
 		}
 	}
