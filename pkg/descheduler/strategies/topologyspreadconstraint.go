@@ -217,7 +217,6 @@ func RemovePodsViolatingTopologySpreadConstraint(
 		 	continue
 		} else {
 			klog.V(2).InfoS("The number of replicas is less (or the same) as the number of nodes, start eviction", "pod", pod.Name, "replicaNumber", podCount, "nodeCountWithoutTaints", nodeCountWithoutTaints)
-			continue
 		}
 
 		if !evictable.IsEvictable(pod) {
