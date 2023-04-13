@@ -186,8 +186,9 @@ func RemovePodsViolatingTopologySpreadConstraint(
 			if topologyIsBalanced(constraintTopologies, constraint) {
 				klog.V(2).InfoS("Skipping topology constraint because it is already balanced", "constraint", constraint)
 				continue
+			} else {
+				balanceDomains(client, getPodsAssignedToNode, podsForEviction, constraint, constraintTopologies, sumPods, evictable.IsEvictable, nodes)
 			}
-			balanceDomains(client, getPodsAssignedToNode, podsForEviction, constraint, constraintTopologies, sumPods, evictable.IsEvictable, nodes)
 		}
 	}
 
